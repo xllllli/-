@@ -72,7 +72,7 @@ const sendMessage = async () => {
   await scrollToBottom();
 
   try {
-    const response = await fetch('http://127.0.0.1:8000/chat', {
+    const response = await fetch('http://47.111.15.132:8000/chat', {
       method: 'POST',
       body: JSON.stringify({ prompt: currentPrompt }),
       headers: { 'Content-Type': 'application/json' }
