@@ -419,6 +419,7 @@ input {
     left: 20px;
     width: 180px;
   }
+ 
 }
 
 /* 手机设备 (小于 768px) */
@@ -470,7 +471,7 @@ input {
   }
   
   input {
-    font-size: 14px;
+    font-size: 12px;
   }
   
   .send-btn {
@@ -509,6 +510,9 @@ input {
   .tag-card {
     padding: 6px 10px;
     font-size: 11px;
+  }
+  input {
+    font-size: 11px;  /* 从 14px 改为 12px */
   }
 }
 </style>
