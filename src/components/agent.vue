@@ -403,4 +403,112 @@ input {
 .main-scroll::-webkit-scrollbar { width: 6px; }
 .main-scroll::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 10px; }
 .main-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* 平板设备 (768px - 1024px) */
+@media (max-width: 1024px) {
+  .chat-window {
+    width: 95%;
+    height: 90vh;
+  }
+  
+  .bubble-container {
+    max-width: 85%;
+  }
+  
+  .inspiration-sidebar {
+    left: 20px;
+    width: 180px;
+  }
+}
+
+/* 手机设备 (小于 768px) */
+@media (max-width: 768px) {
+  .chat-window {
+    width: 100%;
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  .header {
+    height: 60px;
+    padding: 0 16px;
+  }
+  
+  .main-title {
+    font-size: 15px;
+  }
+  
+  .sub-title {
+    font-size: 10px;
+  }
+  
+  .main-scroll {
+    padding: 16px;
+  }
+  
+  .avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .bubble {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  
+  .bubble-container {
+    max-width: 90%;
+  }
+  
+  .footer {
+    padding: 12px 16px;
+  }
+  
+  .input-wrapper {
+    padding: 4px 4px 4px 16px;
+  }
+  
+  input {
+    font-size: 14px;
+  }
+  
+  .send-btn {
+    height: 36px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+  
+  .tag-card {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
+
+/* 超小手机 (小于 480px) */
+@media (max-width: 480px) {
+  .bubble-container {
+    max-width: 95%;
+  }
+  
+  .message-row {
+    margin-bottom: 12px;
+  }
+  
+  .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .bubble {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  
+  .tag-card {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+}
 </style>
