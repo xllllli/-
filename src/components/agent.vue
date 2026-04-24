@@ -258,6 +258,9 @@ const sendMessage = async () => {
                 <div class="dot-ani"></div><div class="dot-ani"></div><div class="dot-ani"></div>
               </div>
               <div v-else v-html="md.render(msg.content)"></div>
+              <pre v-if="msg.role === 'assistant'" style="color: #ff4d4f; font-size: 11px; background: #f5f5f5; padding: 8px; border-radius: 4px; margin-top: 10px; overflow: auto;">
+      Debug 数据状态: {{ msg.uiData }}
+    </pre>
             </div>
           </div>
           <div v-if="msg.role === 'user'" class="avatar user-avatar">👤</div>
