@@ -8,17 +8,20 @@ const chatBody = ref(null);
 
 // 初始欢迎消息
 const messages = ref([
-  { role: 'assistant', content: '你好！我是智旅通 AI 助手，有什么可以帮您的？', thinking: false }
+  { role: 'assistant', content: '你好！我是智旅通 AI 助手，有什么可以帮您的？', thinking: false, uiData: null }
 ]);
 const userInput = ref('');
 
-// 2. 添加 AI 占位消息
-const assistantMsg = reactive({ 
-  role: 'assistant', 
-  content: '', 
-  thinking: true,
-  uiData: null // 👈 新增：专门存放卡片数据
-});
+/**
+ * 自动滚动到底部
+ */
+const scrollToBottom = async () => {
+  await nextTick();
+  if (chatBody.value) {
+    chatBody.value.scrollTop = chatBody.value.scrollHeight;
+  }
+};
+
 /**
  * 解析消息内容，分离文本和 JSON UI
  */
@@ -44,22 +47,8 @@ const parseMessageContent = (messageObj) => {
     messageObj.uiData = cards;
   }
 
-  // 3. 移除掉原文中的 JSON 标记块，只留下纯文字给 Markdown 解析器
+  // 3. 核心步骤：移除掉原文中的 JSON 标记块，只留下纯文字给 Markdown 解析器
   messageObj.content = fullText.replace(regex, '').trim();
-};
-
-/**
- * 修改后的打字机效果函数
- */
-
-/**
- * 自动滚动到底部
- */
-const scrollToBottom = async () => {
-  await nextTick();
-  if (chatBody.value) {
-    chatBody.value.scrollTop = chatBody.value.scrollHeight;
-  }
 };
 
 /**
@@ -80,48 +69,16 @@ const typeEffect = (messageObj, fullText) => {
 
   const timer = setInterval(() => {
     if (i < fullText.length) {
-      // 1. 逐个字符累加，展示打字过程
       messageObj.content += fullText.charAt(i);
       i++;
-      
-      // 2. 随打字进度滚动
       scrollToBottom();
     } else {
-      // 3. 打字结束，清除定时器
       clearInterval(timer);
-
-      // 4. 执行“数据与视图分离”逻辑
-      const rawText = messageObj.content;
-      // 正则匹配 ---JSON_UI_BEGIN--- 和 ---JSON_UI_END--- 之间的内容
-      const jsonRegex = /---JSON_UI_BEGIN---([\s\S]*?)---JSON_UI_END---/g;
-      
-      const extractedCards = [];
-      let match;
-
-      // 循环提取文本中所有的 JSON 块
-      while ((match = jsonRegex.exec(rawText)) !== null) {
-        try {
-          // 解析提取到的 JSON 字符串
-          const parsedData = JSON.parse(match[1].trim());
-          extractedCards.push(parsedData);
-        } catch (e) {
-          console.error("解析卡片数据失败:", e);
-        }
-      }
-
-      // 5. 如果有提取到卡片数据，存入 uiData 供组件渲染
-      if (extractedCards.length > 0) {
-        messageObj.uiData = extractedCards;
-      }
-
-      // 6. 核心步骤：将原始文本中的 JSON 标记块全部剔除
-      // 这样 v-html 渲染出来的就是纯净的导游词，不会显示代码块
-      messageObj.content = rawText.replace(jsonRegex, '').trim();
-      
-      // 最后再次确保滚动到底部，因为内容长度变化了
+      // 打字结束后执行解析，分离 JSON 并清理 content
+      parseMessageContent(messageObj);
       scrollToBottom();
     }
-  }, 30); // 30ms 的打字速度
+  }, 30); 
 };
 
 /**
@@ -135,17 +92,18 @@ const sendMessage = async () => {
   messages.value.push({ role: 'user', content: currentPrompt });
   userInput.value = '';
   
-  // 2. 添加 AI 占位消息，开启思考动画
+  // 2. 添加 AI 占位消息，显式初始化 uiData 确保响应式
   const assistantMsg = reactive({ 
     role: 'assistant', 
     content: '', 
-    thinking: true 
+    thinking: true,
+    uiData: null 
   });
   messages.value.push(assistantMsg);
   await scrollToBottom();
 
   try {
-    const response = await fetch('/api/chat', {
+    const response = await fetch('http://47.111.15.132:8000/chat', {
       method: 'POST',
       body: JSON.stringify({ prompt: currentPrompt }),
       headers: { 'Content-Type': 'application/json' }
@@ -153,8 +111,6 @@ const sendMessage = async () => {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-
-    // 用于记录最后一次有效的 content，防止 done 包内容缺失
     let finalContent = "";
 
     while (true) {
@@ -168,15 +124,10 @@ const sendMessage = async () => {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6));
-            
-            // 实时记录最新内容（此时界面并不渲染，仍在转圈）
             if (data.content) {
               finalContent = data.content;
             }
-
-            // 💡 只有当后端发送 status 为 done 时，才启动平滑打字效果
             if (data.status === "done") {
-              // 这里的 finalContent 来源于上一个 processing 包或当前的 done 包
               const textToDisplay = data.content || finalContent;
               typeEffect(assistantMsg, textToDisplay);
             }
@@ -187,13 +138,86 @@ const sendMessage = async () => {
       });
     }
   } catch (e) {
-    // 异常处理：关闭动画并报错
     assistantMsg.thinking = false;
     assistantMsg.content = "⚠️ 连接失败，请检查后端服务是否启动。";
     console.error("Fetch Error:", e);
   }
 };
 </script>
+
+<template>
+  <div class="app-container">
+    <div class="bg-decoration top-left"></div>
+    <div class="bg-decoration bottom-right"></div>
+    
+    <div class="inspiration-sidebar">
+      <div class="section-title">
+        <span class="icon">✨</span>
+        <span>探索灵感</span>
+      </div>
+      <div class="tag-cloud">
+        <div class="tag-card" @click="userInput = '推荐一个南昌适合看日落的地方'">🌅 南昌日落</div>
+        <div class="tag-card" @click="userInput = '武功山两天一夜攻略'">⛰️ 武功山攻略</div>
+        <div class="tag-card" @click="userInput = '景德镇御窑厂怎么玩？'">🏺 景德镇陶瓷</div>
+        <div class="tag-card" @click="userInput = '婺源现在油菜花开了吗？'">🌼 婺源花海</div>
+        <div class="tag-card" @click="userInput = '江西有哪些不累的避暑胜地？'">🍃 避暑不累</div>
+      </div>
+    </div>
+
+    <div class="chat-window">
+      <header class="header">
+        <div class="header-info">
+          <span class="status-dot"></span>
+          <div class="title-group">
+            <strong class="main-title">智旅通 · 江西金牌向导</strong>
+            <span class="sub-title">基于实时气象与 RAG 的行程规划</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="main-scroll" ref="chatBody">
+        <div v-for="(msg, i) in messages" :key="i" :class="['message-row', msg.role]">
+          <div v-if="msg.role === 'assistant'" class="avatar assistant-avatar">🤖</div>
+          <div class="bubble-container">
+            <div class="bubble">
+              <div v-if="msg.role === 'assistant' && msg.thinking" class="thinking-bubble">
+                <span>正在为您规划行程</span>
+                <div class="dot-ani"></div><div class="dot-ani"></div><div class="dot-ani"></div>
+              </div>
+              
+              <div v-else class="markdown-body" v-html="md.render(msg.content)"></div>
+
+              <div v-if="msg.uiData && msg.uiData.length > 0" class="ui-cards-wrapper">
+                <div v-for="(card, index) in msg.uiData" :key="index" class="card-item">
+                  <div v-if="card.type === 'scenery-card'" class="scenery-card">
+                    <div class="card-image">
+                      <img :src="card.data.image" alt="风景图" @load="scrollToBottom" />
+                    </div>
+                    <div class="card-body">
+                      <h4 class="card-name">{{ card.data.name }}</h4>
+                      <div class="card-tags">
+                        <span v-for="tag in card.data.tags" :key="tag" class="tag-item">{{ tag }}</span>
+                      </div>
+                      <p class="card-desc">{{ card.data.desc }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-if="msg.role === 'user'" class="avatar user-avatar">👤</div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div class="input-wrapper">
+          <input v-model="userInput" @keyup.enter="sendMessage" placeholder="输入目的地，开启江西之旅..." />
+          <button class="send-btn" @click="sendMessage" :disabled="!userInput">发送</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+</template>
 <template>
   <div class="app-container">
     <div class="bg-decoration top-left"></div>
@@ -698,4 +722,54 @@ input {
 .markdown-content :last-child {
   margin-bottom: 0;
 }
+.app-container {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: #f0f4f8 linear-gradient(135deg, #eef2f3 0%, #8e9eab 100%);
+  display: flex; justify-content: center; align-items: center; overflow: hidden;
+  font-family: "PingFang SC", sans-serif;
+}
+.bg-decoration { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.3; pointer-events: none; }
+.top-left { width: 400px; height: 400px; background: #1890ff; top: -10%; left: -5%; }
+.bottom-right { width: 500px; height: 500px; background: #52c41a; bottom: -10%; right: -5%; }
+
+.inspiration-sidebar { position: absolute; left: 40px; top: 20%; width: 200px; z-index: 10; display: flex; flex-direction: column; gap: 15px; }
+@media (max-width: 1150px) { .inspiration-sidebar { display: none; } }
+
+.tag-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); padding: 12px 16px; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(255, 255, 255, 0.5); }
+.tag-card:hover { transform: translateX(10px); color: #1890ff; border-color: #1890ff; }
+
+.chat-window { position: relative; width: 90%; max-width: 850px; height: 85vh; background: rgba(255, 255, 255, 0.96); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.12); }
+.header { height: 70px; padding: 0 25px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; }
+.status-dot { width: 10px; height: 10px; background: #52c41a; border-radius: 50%; }
+
+.main-scroll { flex: 1; overflow-y: auto; padding: 25px; background: rgba(249, 251, 255, 0.5); }
+.message-row { display: flex; margin-bottom: 20px; animation: fadeIn 0.4s ease; }
+.message-row.user { justify-content: flex-end; }
+.bubble { padding: 12px 18px; border-radius: 16px; font-size: 15px; line-height: 1.6; max-width: 100%; }
+.assistant .bubble { background: #fff; border: 1px solid #ebedf0; border-top-left-radius: 4px; }
+.user .bubble { background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%); color: #fff; border-top-right-radius: 4px; }
+
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; }
+.assistant-avatar { background: #e6f7ff; margin-right: 12px; }
+.user-avatar { background: #f0f0f0; margin-left: 12px; }
+
+.footer { padding: 20px 25px; border-top: 1px solid #f0f0f0; }
+.input-wrapper { display: flex; background: #f4f5f7; padding: 8px 20px; border-radius: 30px; align-items: center; }
+input { flex: 1; border: none; background: transparent; outline: none; }
+.send-btn { background: #1890ff; color: #fff; border: none; padding: 10px 22px; border-radius: 20px; cursor: pointer; }
+
+/* 💡 新增卡片样式 */
+.ui-cards-wrapper { margin-top: 14px; display: flex; flex-direction: column; gap: 15px; animation: cardSlideUp 0.5s ease; }
+@keyframes cardSlideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+.scenery-card { background: #fff; border-radius: 18px; overflow: hidden; border: 1px solid #f0f0f0; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+.card-image { width: 100%; height: 190px; }
+.card-image img { width: 100%; height: 100%; object-fit: cover; }
+.card-body { padding: 16px; text-align: left; }
+.card-name { margin-bottom: 8px; font-size: 18px; color: #262626; }
+.card-tags { display: flex; gap: 8px; margin-bottom: 10px; }
+.tag-item { background: #e6f7ff; color: #1890ff; font-size: 12px; padding: 4px 10px; border-radius: 6px; }
+.card-desc { font-size: 14px; color: #595959; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
