@@ -12,6 +12,46 @@ const messages = ref([
 ]);
 const userInput = ref('');
 
+// 2. 添加 AI 占位消息
+const assistantMsg = reactive({ 
+  role: 'assistant', 
+  content: '', 
+  thinking: true,
+  uiData: null // 👈 新增：专门存放卡片数据
+});
+/**
+ * 解析消息内容，分离文本和 JSON UI
+ */
+const parseMessageContent = (messageObj) => {
+  const fullText = messageObj.content;
+  // 匹配标记位之间的 JSON
+  const regex = /---JSON_UI_BEGIN---([\s\S]*?)---JSON_UI_END---/g;
+  
+  let match;
+  const cards = [];
+  
+  // 1. 提取所有 JSON 块
+  while ((match = regex.exec(fullText)) !== null) {
+    try {
+      cards.push(JSON.parse(match[1].trim()));
+    } catch (e) {
+      console.error("卡片 JSON 解析失败:", e);
+    }
+  }
+
+  // 2. 将 UI 数据存入消息对象
+  if (cards.length > 0) {
+    messageObj.uiData = cards;
+  }
+
+  // 3. 移除掉原文中的 JSON 标记块，只留下纯文字给 Markdown 解析器
+  messageObj.content = fullText.replace(regex, '').trim();
+};
+
+/**
+ * 修改后的打字机效果函数
+ */
+
 /**
  * 自动滚动到底部
  */
@@ -36,19 +76,52 @@ const typeEffect = (messageObj, fullText) => {
   let i = 0;
   messageObj.content = ""; // 清空初始内容
   messageObj.thinking = false; // 停止思考动画
+  messageObj.uiData = null; // 初始化 UI 数据位
 
   const timer = setInterval(() => {
     if (i < fullText.length) {
-      // 逐个字符累加
+      // 1. 逐个字符累加，展示打字过程
       messageObj.content += fullText.charAt(i);
       i++;
-      // 随打字进度滚动
+      
+      // 2. 随打字进度滚动
       scrollToBottom();
     } else {
-      // 打字结束，清除定时器
+      // 3. 打字结束，清除定时器
       clearInterval(timer);
+
+      // 4. 执行“数据与视图分离”逻辑
+      const rawText = messageObj.content;
+      // 正则匹配 ---JSON_UI_BEGIN--- 和 ---JSON_UI_END--- 之间的内容
+      const jsonRegex = /---JSON_UI_BEGIN---([\s\S]*?)---JSON_UI_END---/g;
+      
+      const extractedCards = [];
+      let match;
+
+      // 循环提取文本中所有的 JSON 块
+      while ((match = jsonRegex.exec(rawText)) !== null) {
+        try {
+          // 解析提取到的 JSON 字符串
+          const parsedData = JSON.parse(match[1].trim());
+          extractedCards.push(parsedData);
+        } catch (e) {
+          console.error("解析卡片数据失败:", e);
+        }
+      }
+
+      // 5. 如果有提取到卡片数据，存入 uiData 供组件渲染
+      if (extractedCards.length > 0) {
+        messageObj.uiData = extractedCards;
+      }
+
+      // 6. 核心步骤：将原始文本中的 JSON 标记块全部剔除
+      // 这样 v-html 渲染出来的就是纯净的导游词，不会显示代码块
+      messageObj.content = rawText.replace(jsonRegex, '').trim();
+      
+      // 最后再次确保滚动到底部，因为内容长度变化了
+      scrollToBottom();
     }
-  }, 30); // 30ms 吐一个字，速度适中
+  }, 30); // 30ms 的打字速度
 };
 
 /**
@@ -514,5 +587,115 @@ input {
   input {
     font-size: 11px;  /* 从 14px 改为 12px */
   }
+}
+
+/* 卡片容器外间距：与 Markdown 文字拉开距离 */
+.ui-cards-wrapper {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  /* 卡片进入时的渐显动画 */
+  animation: cardSlideUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes cardSlideUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 风景卡片主体 */
+.scenery-card {
+  background: #ffffff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  max-width: 100%;
+  transition: all 0.3s ease;
+}
+
+.scenery-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 15px 35px rgba(24, 144, 255, 0.1);
+}
+
+/* 图片区域 */
+.card-image {
+  width: 100%;
+  height: 190px;
+  overflow: hidden;
+  background: #f0f2f5;
+  position: relative;
+}
+
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.scenery-card:hover .card-image img {
+  transform: scale(1.08); /* 悬停时图片轻微放大，增加生动感 */
+}
+
+/* 卡片内容文字区 */
+.card-body {
+  padding: 16px;
+  text-align: left;
+}
+
+.card-name {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #262626;
+  letter-spacing: 0.5px;
+}
+
+/* 标签组 */
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tag-item {
+  background: #e6f7ff;
+  color: #1890ff;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  border: 1px solid #bae7ff;
+}
+
+/* 描述文本 */
+.card-desc {
+  font-size: 14px;
+  color: #595959;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* 适配手机端：缩小卡片图片高度 */
+@media (max-width: 768px) {
+  .card-image {
+    height: 150px;
+  }
+  .card-name {
+    font-size: 16px;
+  }
+  .card-desc {
+    font-size: 13px;
+  }
+}
+
+/* 修正 Markdown 内容的行间距，避免与卡片太近 */
+.markdown-content :last-child {
+  margin-bottom: 0;
 }
 </style>
