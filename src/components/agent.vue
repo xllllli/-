@@ -54,33 +54,34 @@ const parseMessageContent = (messageObj) => {
 /**
  * 打字机效果函数
  * @param {Object} messageObj - 响应式消息对象
- * @param {String} fullText - 后端返回的完整文本
+ * @param {String} cleanText - 已经剔除了 JSON 标记的纯文本
  */
-const typeEffect = (messageObj, fullText) => {
-  if (!fullText) {
+const typeEffect = (messageObj, cleanText) => {
+  if (!cleanText) {
     messageObj.thinking = false;
     return;
   }
 
   let i = 0;
-  messageObj.content = ""; // 清空初始内容
+  messageObj.content = ""; // 清空“正在为您规划...”的提示
   messageObj.thinking = false; // 停止思考动画
-  messageObj.uiData = null; // 初始化 UI 数据位
+  
+  // 注意：此处删除了 messageObj.uiData = null，
+  // 因为 uiData 已经在 sendMessage 中提前解析并赋值了。
 
   const timer = setInterval(() => {
-    if (i < fullText.length) {
-      messageObj.content += fullText.charAt(i);
+    if (i < cleanText.length) {
+      messageObj.content += cleanText.charAt(i);
       i++;
       scrollToBottom();
     } else {
       clearInterval(timer);
-      // 打字结束后执行解析，分离 JSON 并清理 content
-      parseMessageContent(messageObj);
+      // 注意：此处删除了 parseMessageContent 调用，
+      // 因为传入的 cleanText 已经是处理过的纯文字了。
       scrollToBottom();
     }
   }, 30); 
 };
-
 /**
  * 发送消息并处理响应
  */
@@ -92,7 +93,7 @@ const sendMessage = async () => {
   messages.value.push({ role: 'user', content: currentPrompt });
   userInput.value = '';
   
-  // 2. 添加 AI 占位消息，显式初始化 uiData 确保响应式
+  // 2. 添加 AI 占位消息
   const assistantMsg = reactive({ 
     role: 'assistant', 
     content: '', 
@@ -127,9 +128,20 @@ const sendMessage = async () => {
             if (data.content) {
               finalContent = data.content;
             }
+            // 核心逻辑修改点：
             if (data.status === "done") {
-              const textToDisplay = data.content || finalContent;
-              typeEffect(assistantMsg, textToDisplay);
+              const rawText = data.content || finalContent;
+              
+              // --- 关键步骤：在打字前先提取并剔除 JSON ---
+              // 我们利用一个临时对象来运行解析逻辑
+              const tempProcessor = { content: rawText, uiData: null };
+              parseMessageContent(tempProcessor); 
+
+              // 将解析出的 UI 数据直接赋值给响应式对象
+              assistantMsg.uiData = tempProcessor.uiData;
+              
+              // 将“洗干净”后的纯文本交给打字机
+              typeEffect(assistantMsg, tempProcessor.content);
             }
           } catch (e) {
             console.error("解析数据包失败:", e);
