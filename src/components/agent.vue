@@ -149,7 +149,7 @@ const sendMessage = async () => {
   <div class="app-container">
     <div class="bg-decoration top-left"></div>
     <div class="bg-decoration bottom-right"></div>
-    
+  
     <div class="inspiration-sidebar">
       <div class="section-title">
         <span class="icon">✨</span>
@@ -163,7 +163,6 @@ const sendMessage = async () => {
         <div class="tag-card" @click="userInput = '江西有哪些不累的避暑胜地？'">🍃 避暑不累</div>
       </div>
     </div>
-
     <div class="chat-window">
       <header class="header">
         <div class="header-info">
@@ -174,7 +173,6 @@ const sendMessage = async () => {
           </div>
         </div>
       </header>
-
       <main class="main-scroll" ref="chatBody">
         <div v-for="(msg, i) in messages" :key="i" :class="['message-row', msg.role]">
           <div v-if="msg.role === 'assistant'" class="avatar assistant-avatar">🤖</div>
@@ -184,9 +182,7 @@ const sendMessage = async () => {
                 <span>正在为您规划行程</span>
                 <div class="dot-ani"></div><div class="dot-ani"></div><div class="dot-ani"></div>
               </div>
-              
               <div v-else class="markdown-body" v-html="md.render(msg.content)"></div>
-
               <div v-if="msg.uiData && msg.uiData.length > 0" class="ui-cards-wrapper">
                 <div v-for="(card, index) in msg.uiData" :key="index" class="card-item">
                   <div v-if="card.type === 'scenery-card'" class="scenery-card">
@@ -208,65 +204,6 @@ const sendMessage = async () => {
           <div v-if="msg.role === 'user'" class="avatar user-avatar">👤</div>
         </div>
       </main>
-
-      <footer class="footer">
-        <div class="input-wrapper">
-          <input v-model="userInput" @keyup.enter="sendMessage" placeholder="输入目的地，开启江西之旅..." />
-          <button class="send-btn" @click="sendMessage" :disabled="!userInput">发送</button>
-        </div>
-      </footer>
-    </div>
-  </div>
-</template>
-<template>
-  <div class="app-container">
-    <div class="bg-decoration top-left"></div>
-    <div class="bg-decoration bottom-right"></div>
-    
-    <div class="inspiration-sidebar">
-      <div class="section-title">
-        <span class="icon">✨</span>
-        <span>探索灵感</span>
-      </div>
-      <div class="tag-cloud">
-        <div class="tag-card" @click="userInput = '推荐一个南昌适合看日落的地方'">🌅 南昌日落</div>
-        <div class="tag-card" @click="userInput = '武功山两天一夜攻略'">⛰️ 武功山攻略</div>
-        <div class="tag-card" @click="userInput = '景德镇御窑厂怎么玩？'">🏺 景德镇陶瓷</div>
-        <div class="tag-card" @click="userInput = '婺源现在油菜花开了吗？'">🌼 婺源花海</div>
-        <div class="tag-card" @click="userInput = '江西有哪些不累的避暑胜地？'">🍃 避暑不累</div>
-      </div>
-    </div>
-
-    <div class="chat-window">
-      <header class="header">
-        <div class="header-info">
-          <span class="status-dot"></span>
-          <div class="title-group">
-            <strong class="main-title">智旅通 · 江西金牌向导</strong>
-            <span class="sub-title">基于实时气象与 RAG 的行程规划</span>
-          </div>
-        </div>
-      </header>
-
-      <main class="main-scroll" ref="chatBody">
-        <div v-for="(msg, i) in messages" :key="i" :class="['message-row', msg.role]">
-          <div v-if="msg.role === 'assistant'" class="avatar assistant-avatar">🤖</div>
-          <div class="bubble-container">
-            <div class="bubble">
-              <div v-if="msg.role === 'assistant' && msg.thinking" class="thinking-bubble">
-                <span>正在为您规划行程</span>
-                <div class="dot-ani"></div><div class="dot-ani"></div><div class="dot-ani"></div>
-              </div>
-              <div v-else v-html="md.render(msg.content)"></div>
-              <pre v-if="msg.role === 'assistant'" style="color: #ff4d4f; font-size: 11px; background: #f5f5f5; padding: 8px; border-radius: 4px; margin-top: 10px; overflow: auto;">
-      Debug 数据状态: {{ msg.uiData }}
-    </pre>
-            </div>
-          </div>
-          <div v-if="msg.role === 'user'" class="avatar user-avatar">👤</div>
-        </div>
-      </main>
-
       <footer class="footer">
         <div class="input-wrapper">
           <input v-model="userInput" @keyup.enter="sendMessage" placeholder="输入目的地，开启江西之旅..." />
