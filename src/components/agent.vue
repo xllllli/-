@@ -54,33 +54,44 @@ const parseMessageContent = (messageObj) => {
 /**
  * 打字机效果函数
  * @param {Object} messageObj - 响应式消息对象
- * @param {String} cleanText - 已经剔除了 JSON 标记的纯文本
+ * @param {String} cleanText - 剔除 JSON 后的纯净文本
+ * @param {Array|null} pendingCards - 待显示的 UI 卡片数据
  */
-const typeEffect = (messageObj, cleanText) => {
+const typeEffect = (messageObj, cleanText, pendingCards = null) => {
   if (!cleanText) {
     messageObj.thinking = false;
+    // 如果没有文本但有卡片，直接展示
+    if (pendingCards) messageObj.uiData = pendingCards;
     return;
   }
 
   let i = 0;
-  messageObj.content = ""; // 清空“正在为您规划...”的提示
-  messageObj.thinking = false; // 停止思考动画
+  messageObj.content = "";     // 清空思考状态提示
+  messageObj.thinking = false;  // 关闭思考动画
   
-  // 注意：此处删除了 messageObj.uiData = null，
-  // 因为 uiData 已经在 sendMessage 中提前解析并赋值了。
+  // 确保打字开始前 uiData 是空的
+  messageObj.uiData = null;
 
   const timer = setInterval(() => {
     if (i < cleanText.length) {
       messageObj.content += cleanText.charAt(i);
       i++;
+      // 仅文本更新时的滚动，性能极高，不会卡顿
       scrollToBottom();
     } else {
       clearInterval(timer);
-      // 注意：此处删除了 parseMessageContent 调用，
-      // 因为传入的 cleanText 已经是处理过的纯文字了。
-      scrollToBottom();
+      
+      // --- 核心逻辑：文字打印完毕后，再赋值 uiData ---
+      if (pendingCards) {
+        messageObj.uiData = pendingCards;
+        
+        // 使用 nextTick 确保 DOM 更新（卡片渲染）后再执行最后一次滚动
+        nextTick(() => {
+          scrollToBottom();
+        });
+      }
     }
-  }, 30); 
+  }, 30); // 30ms 频率，保证打字流畅度
 };
 /**
  * 发送消息并处理响应
@@ -128,20 +139,18 @@ const sendMessage = async () => {
             if (data.content) {
               finalContent = data.content;
             }
-            // 核心逻辑修改点：
+            
+            // 当后端传输结束时进行处理
             if (data.status === "done") {
               const rawText = data.content || finalContent;
               
-              // --- 关键步骤：在打字前先提取并剔除 JSON ---
-              // 我们利用一个临时对象来运行解析逻辑
+              // 使用临时对象进行解析，避免直接修改 assistantMsg 触发提前渲染
               const tempProcessor = { content: rawText, uiData: null };
               parseMessageContent(tempProcessor); 
 
-              // 将解析出的 UI 数据直接赋值给响应式对象
-              assistantMsg.uiData = tempProcessor.uiData;
-              
-              // 将“洗干净”后的纯文本交给打字机
-              typeEffect(assistantMsg, tempProcessor.content);
+              // 关键：将解析出的 content 和 uiData 传给 typeEffect
+              // 此时 assistantMsg.uiData 依然是 null，卡片不会显示
+              typeEffect(assistantMsg, tempProcessor.content, tempProcessor.uiData);
             }
           } catch (e) {
             console.error("解析数据包失败:", e);
