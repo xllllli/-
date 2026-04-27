@@ -482,15 +482,33 @@ input {
 
 /* 手机设备 (小于 768px) */
 @media (max-width: 768px) {
+/* 1. 让背景装饰球消失，节省手机性能 */
+  .bg-decoration {
+    display: none;
+  }
+
+  /* 2. 让外层容器不再居中对齐，而是直接撑满 */
+  .app-container {
+    align-items: flex-start; /* 顶部对齐 */
+    background: #fff;        /* 手机端直接用纯白背景，视觉更清爽 */
+  }
+/* 3. 核心：让聊天窗口变身“全屏 App” */
   .chat-window {
-    width: 100%;
-    height: 100vh;
-    border-radius: 0;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100vh !important; /* 占据全高 */
+    height: 100dvh !important; /* 适配移动端浏览器地址栏伸缩 (Dynamic Viewport) */
+    border-radius: 0 !important; /* 去掉大圆角 */
+    box-shadow: none !important; /* 去掉外阴影 */
+    border: none !important;     /* 去掉外边框 */
   }
   
+  /* 4. 调整页眉，增加沉浸感 */
   .header {
     height: 60px;
-    padding: 0 16px;
+    padding: 0 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #eee;
   }
   
   .main-title {
@@ -520,16 +538,17 @@ input {
     max-width: 90%;
   }
   
+  /* 5. 调整底部输入框，确保其在手机输入法弹出时不被遮挡 */
   .footer {
-    padding: 12px 16px;
+    padding: 10px 15px env(safe-area-inset-bottom); /* 适配 iPhone 底部“小横条” */
+    background: #fff;
   }
-  
   .input-wrapper {
     padding: 4px 4px 4px 16px;
   }
   
   input {
-    font-size: 12px;
+    font-size: 12px !important; /* 强制 16px 防止 iOS 自动缩放 */
   }
   
   .send-btn {
@@ -542,6 +561,11 @@ input {
     padding: 8px 12px;
     font-size: 12px;
   }
+ 
+  .card-image {
+    height: 140px; /* 适当减小图片高度 */
+  }
+
 }
 
 /* 超小手机 (小于 480px) */
