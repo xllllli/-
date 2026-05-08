@@ -248,7 +248,9 @@ const sendMessage = async () => {
             // 当后端传输结束时进行处理
             if (data.status === "done") {
               const rawText = data.content || finalContent;
-              
+                console.log("===== 后端返回原始内容 =====");
+  console.log(rawText);
+  console.log("============================");
               // 🔥 新增：检查是否包含样式修改指令
               if (rawText && rawText.includes('[ACTION]')) {
                 // 执行样式修改
