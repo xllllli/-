@@ -93,6 +93,111 @@ const typeEffect = (messageObj, cleanText, pendingCards = null) => {
     }
   }, 30); // 30ms 频率，保证打字流畅度
 };
+
+// ==================== 样式修改执行器（添加到现有代码中）====================
+
+/**
+ * 执行前端样式修改指令
+ * @param {string} actionStr - 格式如 "[ACTION]change_chatbox_color:black"
+ * @returns {boolean} 是否成功执行
+ */
+function executeStyleAction(actionStr) {
+    const match = actionStr.match(/\[ACTION\]([^:]+):?(.*)/);
+    if (!match) return false;
+    
+    const actionName = match[1];
+    const params = match[2] ? match[2].split(':') : [];
+    
+    switch(actionName) {
+        case 'change_chatbox_color':
+            changeChatboxColor(params[0]);
+            return true;
+        case 'change_chatbox_text_color':
+            changeChatboxTextColor(params[0]);
+            return true;
+        case 'reset_chatbox_style':
+            resetChatboxStyle();
+            return true;
+        default:
+            return false;
+    }
+}
+
+/**
+ * 修改聊天框背景色
+ */
+function changeChatboxColor(color) {
+    // 修改聊天窗口背景
+    const chatWindow = document.querySelector('.chat-window');
+    if (chatWindow) {
+        chatWindow.style.background = color === 'black' ? 'rgba(0,0,0,0.95)' : `rgba(${getRgbFromColor(color)}, 0.96)`;
+    }
+    
+    // 修改消息区域的背景
+    const mainScroll = document.querySelector('.main-scroll');
+    if (mainScroll) {
+        mainScroll.style.background = color === 'black' ? 'rgba(0,0,0,0.3)' : `rgba(${getRgbFromColor(color)}, 0.3)`;
+    }
+    
+    // 修改CSS变量
+    document.documentElement.style.setProperty('--chat-bg', color);
+    
+    console.log(`聊天框背景色已改为: ${color}`);
+}
+
+/**
+ * 修改聊天框文字颜色
+ */
+function changeChatboxTextColor(color) {
+    const bubbles = document.querySelectorAll('.assistant .bubble');
+    bubbles.forEach(bubble => {
+        bubble.style.color = color;
+    });
+    document.documentElement.style.setProperty('--chat-text', color);
+    console.log(`文字颜色已改为: ${color}`);
+}
+
+/**
+ * 重置聊天框样式
+ */
+function resetChatboxStyle() {
+    const chatWindow = document.querySelector('.chat-window');
+    if (chatWindow) {
+        chatWindow.style.background = 'rgba(255, 255, 255, 0.96)';
+    }
+    
+    const mainScroll = document.querySelector('.main-scroll');
+    if (mainScroll) {
+        mainScroll.style.background = 'rgba(249, 251, 255, 0.5)';
+    }
+    
+    const bubbles = document.querySelectorAll('.assistant .bubble');
+    bubbles.forEach(bubble => {
+        bubble.style.color = '#333';
+    });
+    
+    document.documentElement.style.setProperty('--chat-bg', 'rgba(249, 251, 255, 0.5)');
+    document.documentElement.style.setProperty('--chat-text', '#333');
+    
+    console.log('聊天框样式已重置');
+}
+
+/**
+ * 颜色名称转RGB值（辅助函数）
+ */
+function getRgbFromColor(color) {
+    const colorMap = {
+        'black': '0,0,0',
+        'white': '255,255,255',
+        'red': '255,0,0',
+        'blue': '0,0,255',
+        'green': '0,255,0',
+        'yellow': '255,255,0',
+        'purple': '128,0,128',
+        'pink': '255,192,203'
+    };
+    return colorMap[color] || '255,255,255';
+}
 /**
  * 发送消息并处理响应
  */
@@ -143,6 +248,21 @@ const sendMessage = async () => {
             // 当后端传输结束时进行处理
             if (data.status === "done") {
               const rawText = data.content || finalContent;
+              
+              // 🔥 新增：检查是否包含样式修改指令
+              if (rawText && rawText.includes('[ACTION]')) {
+                // 执行样式修改
+                executeStyleAction(rawText);
+                
+                // 如果是纯指令（没有其他文本内容），直接结束
+                const isPureAction = rawText.trim().match(/^\[ACTION[^\]]+\](?::[^:]+)?$/);
+                if (isPureAction) {
+                  assistantMsg.thinking = false;
+                  assistantMsg.content = '';
+                   scrollToBottom();
+                  return;
+                }
+              }
               
               // 使用临时对象进行解析，避免直接修改 assistantMsg 触发提前渲染
               const tempProcessor = { content: rawText, uiData: null };
